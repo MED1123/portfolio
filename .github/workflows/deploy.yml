@@ -1,0 +1,39 @@
+name: Deploy to S3
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  S3_BUCKET: norbertcv-portfolio-2025 # Użyj nazwy swojego bucketa
+  AWS_REGION: eu-central-1
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. Sprawdzenie kodu
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Budowanie Kontenera i Aplikacji (Dockerfile)
+    - name: Build and Extract Static Files
+      run: |
+        docker build -t react-portfolio .
+        docker run -d --name react-app react-portfolio
+        docker cp react-app:/usr/share/nginx/html ./build-output
+
+    # 3. Konfiguracja AWS Credentials
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # 4. Synchronizacja z S3
+    - name: Deploy to S3
+      run: |
+        aws s3 sync build-output/ s3://${{ env.S3_BUCKET }} --delete --acl public-read
